@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 432c815cd37540743f827d57f8981dc6)
+version = "0.0.1"
+description = "Pure OCaml parser for the X11 pcf bitmap format"
+requires = "cstruct"
+archive(byte) = "pcf.cma"
+archive(byte, plugin) = "pcf.cma"
+archive(native) = "pcf.cmxa"
+archive(native, plugin) = "pcf.cmxs"
+exists_if = "pcf.cma"
+# OASIS_STOP
+
