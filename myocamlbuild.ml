@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: d8135d606357bef7b2ab08a7a964366b) *)
+(* DO NOT EDIT (digest: 1baa35134d6c0820eeb1f26d6eeb02bf) *)
 module OASISGettext = struct
 (* # 21 "/home/djs/.opam/4.00.1/build/oasis.0.3.0/src/oasis/OASISGettext.ml" *)
 
@@ -480,7 +480,7 @@ let package_default =
      MyOCamlbuildBase.lib_ocaml = [("pcf", ["lib"])];
      lib_c = [];
      flags = [];
-     includes = [];
+     includes = [("dump", ["lib"])];
      }
   ;;
 

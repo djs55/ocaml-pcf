@@ -13,3 +13,11 @@ Library pcf
   Modules: Pcf
   Findlibname: pcf
   BuildDepends: cstruct
+
+Executable dump
+  CompiledObject: best
+  Install: false
+  Path: dump
+  MainIs: dump.ml
+  BuildDepends: pcf,unix
+
