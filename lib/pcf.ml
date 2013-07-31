@@ -26,6 +26,7 @@ cenum ty {
 
 let format_most_sig_byte_first = 1 lsl 2
 let format_most_sig_bit_first  = 1 lsl 3
+let format_compressed_metrics  = 0x100
 
 type table = { ty: ty }
 
@@ -41,6 +42,30 @@ let get_tables (x: Cstruct.t) =
       let ty = get_table_entry_ty table in
       match int_to_ty ty with
       | None -> loop acc rest (n - 1)
+      | Some METRICS ->
+        let e = Cstruct.shift x (Int32.to_int (get_table_entry_offset table)) in
+        let format = Int32.to_int (Cstruct.LE.get_uint32 e 0) in
+        (* TODO: handle endianness options *)
+        if format land format_compressed_metrics = 0 then begin
+          let metrics_count = Int32.to_int (Cstruct.BE.get_uint32 e 4) in
+          let left_side_bearing = Cstruct.BE.get_uint16 e 8 in
+          let right_side_bearing = Cstruct.BE.get_uint16 e 10 in
+          let character_width = Cstruct.BE.get_uint16 e 12 in
+          let character_ascent = Cstruct.BE.get_uint16 e 14 in
+          let character_descent = Cstruct.BE.get_uint16 e 16 in
+          Printf.printf "metrics_count = %d\n%!" metrics_count
+        end else begin
+          let metrics_count = Cstruct.BE.get_uint16 e 4 in
+          Printf.printf "metrics_count = %d\n%!" metrics_count;
+          let left_side_bearing = Cstruct.get_uint8 e 8 in
+          let right_side_bearing = Cstruct.get_uint8 e 9 in
+          let character_width = Cstruct.get_uint8 e 10 in
+          let character_ascent = Cstruct.get_uint8 e 11 in
+          let character_descent = Cstruct.get_uint8 e 12 in
+          ()
+        end;
+        loop (BITMAPS :: acc) rest (n - 1)
+
       | Some BITMAPS ->
         let bitmap = Cstruct.shift x (Int32.to_int (get_table_entry_offset table)) in
         let format = Int32.to_int (Cstruct.LE.get_uint32 bitmap 0) in
