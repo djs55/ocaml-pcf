@@ -98,11 +98,11 @@ let metrics (t: t) n =
   end else begin
     let sizeof_compressed = 8 * 5 in
     let e = Cstruct.shift e (4 + 2 * sizeof_compressed * n) in
-    let left_side_bearing = Cstruct.get_uint8 e 8 in
-    let right_side_bearing = Cstruct.get_uint8 e 9 in
-    let character_width = Cstruct.get_uint8 e 10 in
-    let character_ascent = Cstruct.get_uint8 e 11 in
-    let character_descent = Cstruct.get_uint8 e 12 in
+    let left_side_bearing = Cstruct.get_uint8 e 8 - 0x80 in
+    let right_side_bearing = Cstruct.get_uint8 e 9 - 0x80 in
+    let character_width = Cstruct.get_uint8 e 10 - 0x80 in
+    let character_ascent = Cstruct.get_uint8 e 11 - 0x80 in
+    let character_descent = Cstruct.get_uint8 e 12 - 0x80 in
     { left_side_bearing; right_side_bearing; character_width;
       character_ascent; character_descent }
   end 
