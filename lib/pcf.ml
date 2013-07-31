@@ -1,3 +1,6 @@
+
+let (|>) a b = b a
+
 cstruct header {
   uint8_t magic[4];
   uint32_t table_count
@@ -47,6 +50,17 @@ let string_of_metrics m =
     m.left_side_bearing m.right_side_bearing
     m.character_width m.character_ascent m.character_descent
 
+let chop_exactly (c: Cstruct.t) bytes =
+  if Cstruct.len c mod bytes <> 0
+  then failwith (Printf.sprintf "buffer has length %d, not a multiple of %d" (Cstruct.len c) bytes);
+  let rec loop acc rest =
+    if Cstruct.len rest = 0
+    then List.rev acc
+    else
+      let this, rest = Cstruct.split rest bytes in
+      loop (this :: acc) rest in
+  loop [] c
+
 let find_table (x: Cstruct.t) desired_ty =
   let n = Int32.to_int (get_header_table_count x) in
   let table_start = Cstruct.shift x sizeof_header in
@@ -88,30 +102,38 @@ let metrics (t: t) n =
   if format land format_compressed_metrics = 0 then begin
     let sizeof_uncompressed = 16 * 6 in
     let e = Cstruct.shift e (4 + 4 + sizeof_uncompressed * n) in
-    let left_side_bearing = Cstruct.BE.get_uint16 e 8 in
-    let right_side_bearing = Cstruct.BE.get_uint16 e 10 in
-    let character_width = Cstruct.BE.get_uint16 e 12 in
-    let character_ascent = Cstruct.BE.get_uint16 e 14 in
-    let character_descent = Cstruct.BE.get_uint16 e 16 in
+    let left_side_bearing = Cstruct.BE.get_uint16 e 0 in
+    let right_side_bearing = Cstruct.BE.get_uint16 e 2 in
+    let character_width = Cstruct.BE.get_uint16 e 4 in
+    let character_ascent = Cstruct.BE.get_uint16 e 6 in
+    let character_descent = Cstruct.BE.get_uint16 e 8 in
     { left_side_bearing; right_side_bearing; character_width;
       character_ascent; character_descent }
   end else begin
-    let sizeof_compressed = 8 * 5 in
-    let e = Cstruct.shift e (4 + 2 * sizeof_compressed * n) in
-    let left_side_bearing = Cstruct.get_uint8 e 8 - 0x80 in
-    let right_side_bearing = Cstruct.get_uint8 e 9 - 0x80 in
-    let character_width = Cstruct.get_uint8 e 10 - 0x80 in
-    let character_ascent = Cstruct.get_uint8 e 11 - 0x80 in
-    let character_descent = Cstruct.get_uint8 e 12 - 0x80 in
+    let sizeof_compressed = 5 in
+    let e = Cstruct.shift e (4 + sizeof_compressed * n) in
+    let left_side_bearing = Cstruct.get_uint8 e 0 - 0x80 in
+    let right_side_bearing = Cstruct.get_uint8 e 1 - 0x80 in
+    let character_width = Cstruct.get_uint8 e 2 - 0x80 in
+    let character_ascent = Cstruct.get_uint8 e 3 - 0x80 in
+    let character_descent = Cstruct.get_uint8 e 4 - 0x80 in
     { left_side_bearing; right_side_bearing; character_width;
       character_ascent; character_descent }
   end 
 
 let total_bitmaps (t: t) =
   let e = t.bitmaps in
-  let format = Int32.to_int (Cstruct.LE.get_uint32 e 0) in
   (* TODO: handle endianness options *)
   Int32.to_int (Cstruct.BE.get_uint32 e 4)
+
+let string_to_bool_array nbits msb_first x =
+  let result = Array.create nbits false in
+  for i = 0 to nbits - 1 do
+    let byte = int_of_char x.[i / 8] in
+    let bit_idx = 1 lsl (i mod 8) in
+    result.(nbits - 1 - i) <- byte land bit_idx <> 0
+  done;
+  result
 
 let bitmap (t: t) n =
   let e = t.bitmaps in
@@ -120,6 +142,7 @@ let bitmap (t: t) n =
   let glyph_count = Int32.to_int (Cstruct.BE.get_uint32 e 4) in
   let offsets = Cstruct.shift e 8 in
   let bitmapSizes = Cstruct.shift offsets (4 * glyph_count) in
+  let bitmap_data = Cstruct.shift bitmapSizes 16 in
   let bitmapSizes = Array.map Int32.to_int [|
     Cstruct.BE.get_uint32 bitmapSizes 0;
     Cstruct.BE.get_uint32 bitmapSizes 4;
@@ -127,13 +150,29 @@ let bitmap (t: t) n =
     Cstruct.BE.get_uint32 bitmapSizes 12;
   |] in
   let offset = Int32.to_int (Cstruct.BE.get_uint32 offsets (4 * n)) in
-  let len = bitmapSizes.(format land 3) / 8 in
-  Cstruct.sub t.whole_buffer offset len
+  let total_bytes = bitmapSizes.(format land 3) in
+  let len = total_bytes / glyph_count in
+  let bitmap = Cstruct.sub bitmap_data offset len in
+  let row_is_padded_to = 8 lsl ((format lsr 4) land 3) in (* bits *)
+  let m = metrics t n in
+  let width_bits = m.left_side_bearing + m.right_side_bearing in
+  if width_bits <= 0 then begin
+    Printf.printf "glyph %d has width < 0 %d\n%!" n width_bits;
+    Cstruct.hexdump bitmap;
+    [| |]
+  end else begin
+  let width_bytes = (width_bits + (width_bits mod row_is_padded_to)) / 8 in
+  let msb_first = format land format_most_sig_bit_first <> 0 in
+  chop_exactly bitmap width_bytes
+  |> List.map Cstruct.to_string
+  |> List.map (string_to_bool_array width_bits msb_first)
+  |> Array.of_list
+  end
 
 type table = { ty: ty }
 
 let is_pcf (x: Cstruct.t) = Cstruct.to_string (get_header_magic x) = magic
-
+(*
 let get_tables (x: Cstruct.t) =
   let n = Int32.to_int (get_header_table_count x) in
   let table_start = Cstruct.shift x sizeof_header in
@@ -155,10 +194,8 @@ let get_tables (x: Cstruct.t) =
           let character_width = Cstruct.BE.get_uint16 e 12 in
           let character_ascent = Cstruct.BE.get_uint16 e 14 in
           let character_descent = Cstruct.BE.get_uint16 e 16 in
-          Printf.printf "metrics_count = %d\n%!" metrics_count
         end else begin
           let metrics_count = Cstruct.BE.get_uint16 e 4 in
-          Printf.printf "metrics_count = %d\n%!" metrics_count;
           let left_side_bearing = Cstruct.get_uint8 e 8 in
           let right_side_bearing = Cstruct.get_uint8 e 9 in
           let character_width = Cstruct.get_uint8 e 10 in
@@ -173,7 +210,6 @@ let get_tables (x: Cstruct.t) =
         let format = Int32.to_int (Cstruct.LE.get_uint32 bitmap 0) in
         (* TODO: handle endianness options *)
         let glyph_count = Int32.to_int (Cstruct.BE.get_uint32 bitmap 4) in
-Printf.printf "glyph_count=%d\n%!" glyph_count;
         let offsets = Cstruct.shift bitmap 8 in
         let bitmapSizes = Cstruct.shift offsets (4 * glyph_count) in
         let bitmapSizes = Array.map Int32.to_int [|
@@ -192,4 +228,4 @@ Printf.printf "glyph_count=%d\n%!" glyph_count;
         loop (BITMAPS :: acc) rest (n - 1)
       | Some t -> loop (t :: acc) rest (n - 1) in
   loop [] table_start n
-
+*)

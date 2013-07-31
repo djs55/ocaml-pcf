@@ -23,7 +23,14 @@ let _ =
     let bitmap = Pcf.bitmap t i in
     let metrics = Pcf.metrics t i in
     Printf.printf "%s\n" (Pcf.string_of_metrics metrics);
-    Cstruct.hexdump bitmap
+    Array.iter
+      (fun row ->
+        Array.iter
+          (fun col ->
+            print_string (if col then "XX" else "  ")
+          ) row;
+        print_endline ""
+      ) bitmap
   done
 (*
   let tables = Pcf.get_tables c in
