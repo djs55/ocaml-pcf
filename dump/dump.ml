@@ -12,30 +12,23 @@ let _ =
   Printf.printf "Reading %d bytes\n%!" length;
   let ba = Bigarray.Array1.map_file fd Bigarray.char Bigarray.c_layout false length in
   let c = Cstruct.of_bigarray ba in
-  if Pcf.is_pcf c
-  then Printf.printf "Detected PCF format data\n"
-  else failwith "Failed to detect PCF format data";
-  let t = Pcf.of_cstruct c in
-  Printf.printf "Total metrics: %d\n" (Pcf.total_metrics t);
-  Printf.printf "Total bitmaps: %d\n" (Pcf.total_bitmaps t);
-  for i = 0 to Pcf.total_bitmaps t - 1 do
-    Printf.printf "Glyph %d:\n%!" i;
-    let bitmap = Pcf.bitmap t i in
-    let metrics = Pcf.metrics t i in
-    Printf.printf "%s\n" (Pcf.string_of_metrics metrics);
-    Array.iter
-      (fun row ->
-        Array.iter
-          (fun col ->
-            print_string (if col then "XX" else "  ")
-          ) row;
-        print_endline ""
-      ) bitmap
-  done
-(*
-  let tables = Pcf.get_tables c in
-  List.iteri (fun i table ->
-    Printf.printf "Table %d / %d:\n%!" i (List.length tables);
-    Printf.printf "  %s\n%!" (Pcf.ty_to_string table);
-  ) tables
-*)
+  match Pcf.of_cstruct c with
+  | None ->
+    failwith "Failed to detect PCF format data"
+  | Some t ->
+    Printf.printf "Detected PCF format data\n";
+    Printf.printf "Total glyphs: %d\n" (Pcf.Glyph.number t);
+    for i = 0 to Pcf.Glyph.number t - 1 do
+      Printf.printf "Glyph %d:\n%!" i;
+      let bitmap = Pcf.Glyph.get_bitmap t i in
+      let metrics = Pcf.Glyph.get_metrics t i in
+      Printf.printf "%s\n" (Pcf.Glyph.string_of_metrics metrics);
+      Array.iter
+        (fun row ->
+          Array.iter
+            (fun col ->
+              print_string (if col then "XX" else "  ")
+            ) row;
+          print_endline ""
+        ) bitmap
+    done

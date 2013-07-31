@@ -37,19 +37,6 @@ type t = {
   bitmaps: Cstruct.t;
 }
 
-type metrics = {
-  left_side_bearing: int;
-  right_side_bearing: int;
-  character_width: int;
-  character_ascent: int;
-  character_descent: int
-}
-
-let string_of_metrics m =
-  Printf.sprintf "{ left_side_bearing=%d; right_side_bearing=%d; character_width=%d; character_ascent=%d; character_descent=%d }"
-    m.left_side_bearing m.right_side_bearing
-    m.character_width m.character_ascent m.character_descent
-
 let chop_exactly (c: Cstruct.t) bytes =
   if Cstruct.len c mod bytes <> 0
   then failwith (Printf.sprintf "buffer has length %d, not a multiple of %d" (Cstruct.len c) bytes);
@@ -78,14 +65,31 @@ let find_table (x: Cstruct.t) desired_ty =
   loop table_start n
 
 let of_cstruct (x: Cstruct.t) =
-  let metrics = match find_table x METRICS with
-  | Some x -> x
-  | None -> failwith "Unable to find METRICS table" in
-  let bitmaps = match find_table x BITMAPS with
-  | Some x -> x
-  | None -> failwith "Unable to find BITMAPS table" in
-  let whole_buffer = x in
-  { whole_buffer; metrics; bitmaps }
+  try
+    let metrics = match find_table x METRICS with
+    | Some x -> x
+    | None -> raise Not_found in
+    let bitmaps = match find_table x BITMAPS with
+    | Some x -> x
+    | None -> raise Not_found in
+    let whole_buffer = x in
+    Some { whole_buffer; metrics; bitmaps }
+  with Not_found -> None
+
+module Glyph = struct
+
+type metrics = {
+  left_side_bearing: int;
+  right_side_bearing: int;
+  character_width: int;
+  character_ascent: int;
+  character_descent: int
+}
+
+let string_of_metrics m =
+  Printf.sprintf "{ left_side_bearing=%d; right_side_bearing=%d; character_width=%d; character_ascent=%d; character_descent=%d }"
+    m.left_side_bearing m.right_side_bearing
+    m.character_width m.character_ascent m.character_descent
 
 let total_metrics (t: t) =
   let e = t.metrics in
@@ -172,6 +176,13 @@ let bitmap (t: t) n =
 type table = { ty: ty }
 
 let is_pcf (x: Cstruct.t) = Cstruct.to_string (get_header_magic x) = magic
+
+let number = total_bitmaps
+
+let get_bitmap = bitmap
+
+let get_metrics = metrics
+end
 (*
 let get_tables (x: Cstruct.t) =
   let n = Int32.to_int (get_header_table_count x) in
