@@ -37,7 +37,7 @@ module Metrics : sig
   (** Pretty-print a metrics value *)
 end
 
-module AcceleratorTable: sig
+module Accelerator: sig
   type t = {
     no_overlap: bool;
     constant_metrics: bool;
@@ -53,8 +53,11 @@ module AcceleratorTable: sig
   }
 
   val to_string: t -> string
-  (** Pretty-print a metrics value *)
+  (** Pretty-print an accelerator value *)
 end
+
+val get_accelerator: t -> Accelerator.t
+(** Read the font-global accelerator information *)
 
 module Encoding : sig
   type t

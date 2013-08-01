@@ -51,6 +51,7 @@ type t = {
   metrics: Cstruct.t;
   bitmaps: Cstruct.t;
   encodings: Cstruct.t;
+  accelerators: Cstruct.t;
 }
 
 let chop_exactly (c: Cstruct.t) bytes =
@@ -91,14 +92,22 @@ let of_cstruct (x: Cstruct.t) =
     let encodings = match find_table x BDF_ENCODINGS with
     | Some x -> x
     | None -> raise Not_found in
+    let accelerators = match find_table x ACCELERATORS with
+    | Some x -> x
+    | None -> raise Not_found in
     let whole_buffer = x in
-    Some { whole_buffer; metrics; bitmaps; encodings }
+    Some { whole_buffer; metrics; bitmaps; encodings; accelerators }
   with Not_found -> None
 
 let get_uint16 format =
   if (Int32.to_int format) land format_most_sig_byte_first <> 0
   then Cstruct.BE.get_uint16
   else Cstruct.LE.get_uint16
+
+let get_uint32 format =
+  if (Int32.to_int format) land format_most_sig_byte_first <> 0
+  then Cstruct.BE.get_uint32
+  else Cstruct.LE.get_uint32
 
 module Encoding = struct
   type t = int
@@ -142,6 +151,28 @@ module Metrics = struct
     Printf.sprintf "{ left_side_bearing=%d; right_side_bearing=%d; character_width=%d; character_ascent=%d; character_descent=%d }"
       t.left_side_bearing t.right_side_bearing
       t.character_width t.character_ascent t.character_descent
+
+  let uncompressed format e =
+    let left_side_bearing  = get_uint16 format e 0 in
+    let right_side_bearing = get_uint16 format e 2 in
+    let character_width    = get_uint16 format e 4 in
+    let character_ascent   = get_uint16 format e 6 in
+    let character_descent  = get_uint16 format e 8 in
+    { left_side_bearing; right_side_bearing; character_width;
+      character_ascent; character_descent }
+
+  let sizeof_uncompressed = 16 * 6
+
+  let compressed e =
+    let left_side_bearing  = Cstruct.get_uint8 e 0 - 0x80 in
+    let right_side_bearing = Cstruct.get_uint8 e 1 - 0x80 in
+    let character_width    = Cstruct.get_uint8 e 2 - 0x80 in
+    let character_ascent   = Cstruct.get_uint8 e 3 - 0x80 in
+    let character_descent  = Cstruct.get_uint8 e 4 - 0x80 in
+    { left_side_bearing; right_side_bearing; character_width;
+      character_ascent; character_descent }
+
+  let sizeof_compressed = 5
 end
 
 type direction = LeftToRight | RightToLeft
@@ -150,7 +181,7 @@ let string_of_direction = function
   | LeftToRight -> "LeftToRight"
   | RightToLeft -> "RightToLeft"
 
-module AcceleratorTable = struct
+module Accelerator = struct
   type t = {
     no_overlap: bool;
     constant_metrics: bool;
@@ -171,8 +202,33 @@ module AcceleratorTable = struct
       t.ink_inside t.ink_metrics (string_of_direction t.draw_direction)
       t.font_ascent t.font_descent
       (Metrics.to_string t.min_bounds) (Metrics.to_string t.max_bounds)
+
 end
 
+let get_accelerator t =
+  let e = t.accelerators in
+  let format = Cstruct.LE.get_uint32 e 0 in
+  let no_overlap       = Cstruct.get_uint8 e 4 <> 0 in
+  let constant_metrics = Cstruct.get_uint8 e 5 <> 0 in
+  let terminal_font    = Cstruct.get_uint8 e 6 <> 0 in
+  let constant_width   = Cstruct.get_uint8 e 7 <> 0 in
+  let ink_inside       = Cstruct.get_uint8 e 8 <> 0 in
+  let ink_metrics      = Cstruct.get_uint8 e 9 <> 0 in
+  let draw_direction   = match Cstruct.get_uint8 e 10 with
+    | 0 -> LeftToRight
+    | 1 -> RightToLeft
+    | n -> failwith (Printf.sprintf "illegal draw direction value: %d" n) in
+  (* padding *)
+  let font_ascent = Int32.to_int (get_uint32 format e 12) in
+  let font_descent = Int32.to_int (get_uint32 format e 16) in
+  (* max_overlap *)
+  let m = Cstruct.shift e 20 in
+  let min_bounds = Metrics.uncompressed format m in
+  let m = Cstruct.shift m Metrics.sizeof_uncompressed in
+  let max_bounds = Metrics.uncompressed format m in
+  { Accelerator.no_overlap; constant_metrics; terminal_font; constant_width;
+    ink_inside; ink_metrics; draw_direction; font_ascent; font_descent;
+    min_bounds; max_bounds }
 
 module Glyph = struct
 
@@ -186,28 +242,16 @@ let total_metrics (t: t) =
 
 let metrics (t: t) n =
   let e = t.metrics in
-  let format = Int32.to_int (Cstruct.LE.get_uint32 e 0) in
+  let format = Cstruct.LE.get_uint32 e 0 in
   (* TODO: handle endianness options *)
-  if format land format_compressed_metrics = 0 then begin
+  if (Int32.to_int format) land format_compressed_metrics = 0 then begin
     let sizeof_uncompressed = 16 * 6 in
-    let e = Cstruct.shift e (4 + 4 + sizeof_uncompressed * n) in
-    let left_side_bearing = Cstruct.BE.get_uint16 e 0 in
-    let right_side_bearing = Cstruct.BE.get_uint16 e 2 in
-    let character_width = Cstruct.BE.get_uint16 e 4 in
-    let character_ascent = Cstruct.BE.get_uint16 e 6 in
-    let character_descent = Cstruct.BE.get_uint16 e 8 in
-    { Metrics.left_side_bearing; right_side_bearing; character_width;
-      character_ascent; character_descent }
+    let e = Cstruct.shift e (4 + 4 + Metrics.sizeof_uncompressed * n) in
+    Metrics.uncompressed format e
   end else begin
     let sizeof_compressed = 5 in
-    let e = Cstruct.shift e (4 + sizeof_compressed * n) in
-    let left_side_bearing = Cstruct.get_uint8 e 0 - 0x80 in
-    let right_side_bearing = Cstruct.get_uint8 e 1 - 0x80 in
-    let character_width = Cstruct.get_uint8 e 2 - 0x80 in
-    let character_ascent = Cstruct.get_uint8 e 3 - 0x80 in
-    let character_descent = Cstruct.get_uint8 e 4 - 0x80 in
-    { Metrics.left_side_bearing; right_side_bearing; character_width;
-      character_ascent; character_descent }
+    let e = Cstruct.shift e (4 + Metrics.sizeof_compressed * n) in
+    Metrics.compressed e
   end 
 
 let total_bitmaps (t: t) =
