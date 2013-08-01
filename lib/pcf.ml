@@ -222,7 +222,7 @@ let get_accelerator t =
   let font_ascent = Int32.to_int (get_uint32 format e 12) in
   let font_descent = Int32.to_int (get_uint32 format e 16) in
   (* max_overlap *)
-  let m = Cstruct.shift e 20 in
+  let m = Cstruct.shift e 24 in
   let min_bounds = Metrics.uncompressed format m in
   let m = Cstruct.shift m Metrics.sizeof_uncompressed in
   let max_bounds = Metrics.uncompressed format m in
