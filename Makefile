@@ -8,6 +8,7 @@ build: setup.data
 	ocaml setup.ml -build
 
 install: build
+	ocamlfind remove pcf
 	ocaml setup.ml -install
 
 .PHONY: clean
