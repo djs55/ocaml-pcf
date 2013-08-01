@@ -1,8 +1,8 @@
 
 let _ =
-  if Array.length Sys.argv <> 2 then begin
+  if Array.length Sys.argv <> 3 then begin
     Printf.fprintf stderr "Usage:\n";
-    Printf.fprintf stderr "  %s <pcf filename>\n" Sys.argv.(0);
+    Printf.fprintf stderr "  %s <pcf filename> <encoding>\n" Sys.argv.(0);
     exit 1;
   end;
   Printf.printf "Opening %s\n%!" Sys.argv.(1);
@@ -18,11 +18,11 @@ let _ =
   | Some t ->
     Printf.printf "Detected PCF format data\n";
     Printf.printf "Total glyphs: %d\n" (Pcf.Glyph.number t);
-    for i = 0 to Pcf.Glyph.number t - 1 do
-      Printf.printf "Glyph %d:\n%!" i;
-      let bitmap = Pcf.Glyph.get_bitmap t i in
-      let metrics = Pcf.Glyph.get_metrics t i in
-      Printf.printf "%s\n" (Pcf.Glyph.string_of_metrics metrics);
+    let e = Pcf.Encoding.of_int (int_of_string Sys.argv.(2)) in
+    begin match Pcf.Glyph.get_bitmap t e with
+    | None ->
+      Printf.printf "No glyph for encoding\n%!"
+    | Some bitmap ->
       Array.iter
         (fun row ->
           Array.iter
@@ -31,4 +31,4 @@ let _ =
             ) row;
           print_endline ""
         ) bitmap
-    done
+    end

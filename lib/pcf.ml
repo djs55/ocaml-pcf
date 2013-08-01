@@ -50,6 +50,7 @@ type t = {
   whole_buffer: Cstruct.t;
   metrics: Cstruct.t;
   bitmaps: Cstruct.t;
+  encodings: Cstruct.t;
 }
 
 let chop_exactly (c: Cstruct.t) bytes =
@@ -87,9 +88,45 @@ let of_cstruct (x: Cstruct.t) =
     let bitmaps = match find_table x BITMAPS with
     | Some x -> x
     | None -> raise Not_found in
+    let encodings = match find_table x BDF_ENCODINGS with
+    | Some x -> x
+    | None -> raise Not_found in
     let whole_buffer = x in
-    Some { whole_buffer; metrics; bitmaps }
+    Some { whole_buffer; metrics; bitmaps; encodings }
   with Not_found -> None
+
+let get_uint16 format =
+  if (Int32.to_int format) land format_most_sig_byte_first <> 0
+  then Cstruct.BE.get_uint16
+  else Cstruct.LE.get_uint16
+
+module Encoding = struct
+  type t = int
+
+  let of_int x = x
+
+  let lookup_glyph t x =
+    let e = t.encodings in
+    let format = Cstruct.LE.get_uint32 e 0 in
+    let min_char_or_byte2   = get_uint16 format e 4 in
+    let max_char_or_byte2   = get_uint16 format e 6 in
+    let min_byte1           = get_uint16 format e 8 in
+    let max_byte1           = get_uint16 format e 10 in
+    let (* default_char *)_ = get_uint16 format e 12 in
+    let table = Cstruct.shift e 14 in
+    let low = x land 0xff in
+    let high = (x lsr 8) land 0xff in
+    if x lsr 16 <> 0
+    then None (* more than 16-bits *)
+    else
+      if high < min_byte1 || high > max_byte1
+      || low < min_char_or_byte2
+      || low > max_char_or_byte2
+      then None
+      else
+        let idx = (high - min_byte1) * (max_char_or_byte2 - min_char_or_byte2 + 1) + low - min_char_or_byte2 in
+        Some (get_uint16 format table (idx * 2))
+end
 
 module Glyph = struct
 
@@ -194,9 +231,13 @@ let is_pcf (x: Cstruct.t) = Cstruct.to_string (get_header_magic x) = magic
 
 let number = total_bitmaps
 
-let get_bitmap = bitmap
+let get_bitmap t enc = match Encoding.lookup_glyph t enc with
+  | None -> None
+  | Some x -> Some (bitmap t x)
 
-let get_metrics = metrics
+let get_metrics t enc = match Encoding.lookup_glyph t enc with
+  | None -> None
+  | Some x -> Some (metrics t x)
 end
 (*
 let get_tables (x: Cstruct.t) =

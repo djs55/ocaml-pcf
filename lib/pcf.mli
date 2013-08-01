@@ -21,6 +21,12 @@ val of_cstruct: Cstruct.t -> t option
 (** [of_cstruct c] evaluates to (Some t) if [c] has PCF format
     data, and None otherwise *)
 
+module Encoding : sig
+  type t
+
+  val of_int: int -> t
+end
+
 module Glyph : sig
 
   type metrics = {
@@ -38,10 +44,10 @@ module Glyph : sig
   val number: t -> int
   (** [number t] returns the number of glyphs *)
 
-  val get_bitmap: t -> int -> bool array array
+  val get_bitmap: t -> Encoding.t -> bool array array option
   (** [get_bitmap t n] returns the bitmap for glyph [n] *)
 
-  val get_metrics: t -> int -> metrics
+  val get_metrics: t -> Encoding.t -> metrics option
   (** [get_metrics t n] returns the metrics for glyph [n] *)
 
 end
