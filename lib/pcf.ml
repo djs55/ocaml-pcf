@@ -246,7 +246,7 @@ let metrics (t: t) n =
     let e = Cstruct.shift e (4 + 4 + Metrics.sizeof_uncompressed * n) in
     Metrics.uncompressed format e
   end else begin
-    let e = Cstruct.shift e (4 + Metrics.sizeof_compressed * n) in
+    let e = Cstruct.shift e (4 + 2 + Metrics.sizeof_compressed * n) in
     Metrics.compressed e
   end 
 
@@ -282,15 +282,20 @@ let bitmap (t: t) n =
   let total_bytes = bitmapSizes.(format land 3) in
   let len = total_bytes / glyph_count in
   let bitmap = Cstruct.sub bitmap_data offset len in
-  let row_is_padded_to = 8 lsl ((format lsr 4) land 3) in (* bits *)
+  let row_is_padded_to = 8 lsl (format land 3) in (* bits *)
+  (* TODO: (format lsr 4) land 3 = 1 implies bits are stored in 16s, 2 implies 32s *)
   let m = metrics t n in
-  let width_bits = m.Metrics.left_side_bearing + m.Metrics.right_side_bearing in
+  let width_bits = m.Metrics.character_width in
   if width_bits <= 0 then begin
     Printf.printf "glyph %d has width < 0 %d\n%!" n width_bits;
     Cstruct.hexdump bitmap;
     [| |]
   end else begin
-  let width_bytes = (width_bits + (width_bits mod row_is_padded_to)) / 8 in
+  let padding_bits =
+    if width_bits mod row_is_padded_to = 0
+    then 0
+    else row_is_padded_to - (width_bits mod row_is_padded_to) in
+  let width_bytes = (width_bits + padding_bits) / 8 in
   let msb_first = format land format_most_sig_bit_first <> 0 in
   chop_exactly bitmap width_bytes
   |> List.map Cstruct.to_string
