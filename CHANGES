@@ -2,3 +2,4 @@
 
 * Now able to extract glyphs from 8x16.pcf
 * Now able to look up glyphs from encodings within 8x16.pcf
+* Now able to extract font-global accelerator information

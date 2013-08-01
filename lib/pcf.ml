@@ -234,30 +234,26 @@ module Glyph = struct
 
 let total_metrics (t: t) =
   let e = t.metrics in
-  let format = Int32.to_int (Cstruct.LE.get_uint32 e 0) in
-  (* TODO: handle endianness options *)
-  if format land format_compressed_metrics = 0
-  then Int32.to_int (Cstruct.BE.get_uint32 e 4)
-  else Cstruct.BE.get_uint16 e 4
+  let format = Cstruct.LE.get_uint32 e 0 in
+  if (Int32.to_int format) land format_compressed_metrics = 0
+  then Int32.to_int (get_uint32 format e 4)
+  else get_uint16 format e 4
 
 let metrics (t: t) n =
   let e = t.metrics in
   let format = Cstruct.LE.get_uint32 e 0 in
-  (* TODO: handle endianness options *)
   if (Int32.to_int format) land format_compressed_metrics = 0 then begin
-    let sizeof_uncompressed = 16 * 6 in
     let e = Cstruct.shift e (4 + 4 + Metrics.sizeof_uncompressed * n) in
     Metrics.uncompressed format e
   end else begin
-    let sizeof_compressed = 5 in
     let e = Cstruct.shift e (4 + Metrics.sizeof_compressed * n) in
     Metrics.compressed e
   end 
 
 let total_bitmaps (t: t) =
   let e = t.bitmaps in
-  (* TODO: handle endianness options *)
-  Int32.to_int (Cstruct.BE.get_uint32 e 4)
+  let format = Cstruct.LE.get_uint32 e 0 in
+  Int32.to_int (get_uint32 format e 4)
 
 let string_to_bool_array nbits msb_first x =
   let result = Array.create nbits false in
@@ -270,19 +266,19 @@ let string_to_bool_array nbits msb_first x =
 
 let bitmap (t: t) n =
   let e = t.bitmaps in
-  let format = Int32.to_int (Cstruct.LE.get_uint32 e 0) in
-  (* TODO: handle endianness options *)
-  let glyph_count = Int32.to_int (Cstruct.BE.get_uint32 e 4) in
+  let format = Cstruct.LE.get_uint32 e 0 in
+  let glyph_count = Int32.to_int (get_uint32 format e 4) in
   let offsets = Cstruct.shift e 8 in
   let bitmapSizes = Cstruct.shift offsets (4 * glyph_count) in
   let bitmap_data = Cstruct.shift bitmapSizes 16 in
   let bitmapSizes = Array.map Int32.to_int [|
-    Cstruct.BE.get_uint32 bitmapSizes 0;
-    Cstruct.BE.get_uint32 bitmapSizes 4;
-    Cstruct.BE.get_uint32 bitmapSizes 8;
-    Cstruct.BE.get_uint32 bitmapSizes 12;
+    get_uint32 format bitmapSizes 0;
+    get_uint32 format bitmapSizes 4;
+    get_uint32 format bitmapSizes 8;
+    get_uint32 format bitmapSizes 12;
   |] in
-  let offset = Int32.to_int (Cstruct.BE.get_uint32 offsets (4 * n)) in
+  let offset = Int32.to_int (get_uint32 format offsets (4 * n)) in
+  let format = Int32.to_int format in
   let total_bytes = bitmapSizes.(format land 3) in
   let len = total_bytes / glyph_count in
   let bitmap = Cstruct.sub bitmap_data offset len in
