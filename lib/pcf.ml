@@ -128,20 +128,53 @@ module Encoding = struct
         Some (get_uint16 format table (idx * 2))
 end
 
+module Metrics = struct
+
+  type t = {
+    left_side_bearing: int;
+    right_side_bearing: int;
+    character_width: int;
+    character_ascent: int;
+    character_descent: int
+  }
+
+  let to_string t =
+    Printf.sprintf "{ left_side_bearing=%d; right_side_bearing=%d; character_width=%d; character_ascent=%d; character_descent=%d }"
+      t.left_side_bearing t.right_side_bearing
+      t.character_width t.character_ascent t.character_descent
+end
+
+type direction = LeftToRight | RightToLeft
+
+let string_of_direction = function
+  | LeftToRight -> "LeftToRight"
+  | RightToLeft -> "RightToLeft"
+
+module AcceleratorTable = struct
+  type t = {
+    no_overlap: bool;
+    constant_metrics: bool;
+    terminal_font: bool;
+    constant_width: bool;
+    ink_inside: bool;
+    ink_metrics: bool;
+    draw_direction: direction;
+    font_ascent: int;
+    font_descent: int;
+    min_bounds: Metrics.t;
+    max_bounds: Metrics.t;
+  }
+
+  let to_string t =
+    Printf.sprintf "{ no_overlap=%b constant_metrics=%b terminal_font=%b constant_width=%b ink_inside=%b ink_metrics=%b draw_direction=%s font_ascent=%d font_descent=%d min_bounds=%s max_bounds=%s }"
+      t.no_overlap t.constant_metrics t.terminal_font t.constant_width
+      t.ink_inside t.ink_metrics (string_of_direction t.draw_direction)
+      t.font_ascent t.font_descent
+      (Metrics.to_string t.min_bounds) (Metrics.to_string t.max_bounds)
+end
+
+
 module Glyph = struct
-
-type metrics = {
-  left_side_bearing: int;
-  right_side_bearing: int;
-  character_width: int;
-  character_ascent: int;
-  character_descent: int
-}
-
-let string_of_metrics m =
-  Printf.sprintf "{ left_side_bearing=%d; right_side_bearing=%d; character_width=%d; character_ascent=%d; character_descent=%d }"
-    m.left_side_bearing m.right_side_bearing
-    m.character_width m.character_ascent m.character_descent
 
 let total_metrics (t: t) =
   let e = t.metrics in
@@ -163,7 +196,7 @@ let metrics (t: t) n =
     let character_width = Cstruct.BE.get_uint16 e 4 in
     let character_ascent = Cstruct.BE.get_uint16 e 6 in
     let character_descent = Cstruct.BE.get_uint16 e 8 in
-    { left_side_bearing; right_side_bearing; character_width;
+    { Metrics.left_side_bearing; right_side_bearing; character_width;
       character_ascent; character_descent }
   end else begin
     let sizeof_compressed = 5 in
@@ -173,7 +206,7 @@ let metrics (t: t) n =
     let character_width = Cstruct.get_uint8 e 2 - 0x80 in
     let character_ascent = Cstruct.get_uint8 e 3 - 0x80 in
     let character_descent = Cstruct.get_uint8 e 4 - 0x80 in
-    { left_side_bearing; right_side_bearing; character_width;
+    { Metrics.left_side_bearing; right_side_bearing; character_width;
       character_ascent; character_descent }
   end 
 
@@ -211,7 +244,7 @@ let bitmap (t: t) n =
   let bitmap = Cstruct.sub bitmap_data offset len in
   let row_is_padded_to = 8 lsl ((format lsr 4) land 3) in (* bits *)
   let m = metrics t n in
-  let width_bits = m.left_side_bearing + m.right_side_bearing in
+  let width_bits = m.Metrics.left_side_bearing + m.Metrics.right_side_bearing in
   if width_bits <= 0 then begin
     Printf.printf "glyph %d has width < 0 %d\n%!" n width_bits;
     Cstruct.hexdump bitmap;

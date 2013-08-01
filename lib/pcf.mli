@@ -21,6 +21,41 @@ val of_cstruct: Cstruct.t -> t option
 (** [of_cstruct c] evaluates to (Some t) if [c] has PCF format
     data, and None otherwise *)
 
+type direction = LeftToRight | RightToLeft
+(** direction that the script should be written *)
+
+module Metrics : sig
+  type t = {
+    left_side_bearing: int;
+    right_side_bearing: int;
+    character_width: int;
+    character_ascent: int;
+    character_descent: int
+  }
+
+  val to_string: t -> string
+  (** Pretty-print a metrics value *)
+end
+
+module AcceleratorTable: sig
+  type t = {
+    no_overlap: bool;
+    constant_metrics: bool;
+    terminal_font: bool;
+    constant_width: bool;
+    ink_inside: bool;
+    ink_metrics: bool;
+    draw_direction: direction;
+    font_ascent: int;
+    font_descent: int;
+    min_bounds: Metrics.t;
+    max_bounds: Metrics.t;
+  }
+
+  val to_string: t -> string
+  (** Pretty-print a metrics value *)
+end
+
 module Encoding : sig
   type t
 
@@ -29,25 +64,13 @@ end
 
 module Glyph : sig
 
-  type metrics = {
-    left_side_bearing: int;
-    right_side_bearing: int;
-    character_width: int;
-    character_ascent: int;
-    character_descent: int
-  }
-  (** Metrics for a specific glyph *)
-
-  val string_of_metrics: metrics -> string
-  (** Pretty-print a metrics value *)
-
   val number: t -> int
   (** [number t] returns the number of glyphs *)
 
   val get_bitmap: t -> Encoding.t -> bool array array option
   (** [get_bitmap t n] returns the bitmap for glyph [n] *)
 
-  val get_metrics: t -> Encoding.t -> metrics option
+  val get_metrics: t -> Encoding.t -> Metrics.t option
   (** [get_metrics t n] returns the metrics for glyph [n] *)
 
 end
