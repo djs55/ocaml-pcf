@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 432c815cd37540743f827d57f8981dc6)
+# DO NOT EDIT (digest: 210ccf2ea945e1554ce2f5b9da199b22)
 version = "0.0.1"
 description = "Pure OCaml parser for the X11 pcf bitmap format"
 requires = "cstruct"
@@ -8,5 +8,15 @@ archive(byte, plugin) = "pcf.cma"
 archive(native) = "pcf.cmxa"
 archive(native, plugin) = "pcf.cmxs"
 exists_if = "pcf.cma"
+package "unix" (
+ version = "0.0.1"
+ description = "Pure OCaml parser for the X11 pcf bitmap format"
+ requires = "unix pcf"
+ archive(byte) = "pcf_unix.cma"
+ archive(byte, plugin) = "pcf_unix.cma"
+ archive(native) = "pcf_unix.cmxa"
+ archive(native, plugin) = "pcf_unix.cmxs"
+ exists_if = "pcf_unix.cma"
+)
 # OASIS_STOP
 

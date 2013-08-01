@@ -6,13 +6,7 @@ let _ =
     exit 1;
   end;
   Printf.printf "Opening %s\n%!" Sys.argv.(1);
-  let fd = Unix.openfile Sys.argv.(1) [ Unix.O_RDONLY ] 0o0 in
-  let s = Unix.fstat fd in
-  let length = s.Unix.st_size in
-  Printf.printf "Reading %d bytes\n%!" length;
-  let ba = Bigarray.Array1.map_file fd Bigarray.char Bigarray.c_layout false length in
-  let c = Cstruct.of_bigarray ba in
-  match Pcf.of_cstruct c with
+  match Pcf_unix.of_file Sys.argv.(1) with
   | None ->
     failwith "Failed to detect PCF format data"
   | Some t ->
