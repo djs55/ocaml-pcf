@@ -19,11 +19,12 @@ let _ =
     | None ->
       Printf.printf "No glyph for encoding\n%!"
     | Some bitmap ->
-      Array.iter
-        (fun row ->
+      Array.iteri
+        (fun row_number row ->
+          Printf.printf "%3d: " row_number;
           Array.iter
             (fun col ->
-              print_string (if col then "XX" else "  ")
+              print_string (if col then "X" else " ")
             ) row;
           print_endline ""
         ) bitmap
