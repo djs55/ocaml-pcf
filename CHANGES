@@ -1,4 +1,4 @@
-0.0.1 (trunk):
+0.0.1 (16-Aug-2013):
 
 * Now able to extract glyphs from 8x16.pcf
 * Now able to look up glyphs from encodings within 8x16.pcf
