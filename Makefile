@@ -13,4 +13,4 @@ install: build
 
 .PHONY: clean
 clean:
-	rm -rf _build
+	rm -rf _build setup.data
