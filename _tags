@@ -1,8 +1,9 @@
 # OASIS_START
-# DO NOT EDIT (digest: 06e9d7768c0c32cc375df6aa519bd093)
-# Ignore VCS directories, you can use the same kind of rule outside 
-# OASIS_START/STOP if you want to exclude directories that contains 
+# DO NOT EDIT (digest: 3047e0091344cc3994066afb779c5190)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
+true: annot, bin_annot
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
 ".bzr": -traverse
@@ -17,19 +18,20 @@
 "lib/pcf.cmxs": use_pcf
 # Library pcf_unix
 "lib/pcf_unix.cmxs": use_pcf_unix
-<lib/*.ml{,i}>: use_pcf
-<lib/*.ml{,i}>: pkg_unix
-<lib/*.ml{,i}>: pkg_cstruct
+<lib/*.ml{,i,y}>: pkg_cstruct
+<lib/*.ml{,i,y}>: pkg_cstruct.ppx
+<lib/*.ml{,i,y}>: pkg_unix
+<lib/*.ml{,i,y}>: use_pcf
 # Executable dump
-<dump/dump.{native,byte}>: use_pcf_unix
-<dump/dump.{native,byte}>: use_pcf
-<dump/dump.{native,byte}>: pkg_unix
 <dump/dump.{native,byte}>: pkg_cstruct
-<dump/*.ml{,i}>: use_pcf_unix
-<dump/*.ml{,i}>: use_pcf
-<dump/*.ml{,i}>: pkg_unix
-<dump/*.ml{,i}>: pkg_cstruct
+<dump/dump.{native,byte}>: pkg_cstruct.ppx
+<dump/dump.{native,byte}>: pkg_unix
+<dump/dump.{native,byte}>: use_pcf
+<dump/dump.{native,byte}>: use_pcf_unix
+<dump/*.ml{,i,y}>: pkg_cstruct
+<dump/*.ml{,i,y}>: pkg_cstruct.ppx
+<dump/*.ml{,i,y}>: pkg_unix
+<dump/*.ml{,i,y}>: use_pcf
+<dump/*.ml{,i,y}>: use_pcf_unix
 # OASIS_STOP
-<lib/*>: syntax_camlp4o
-<lib/*.ml{,i}>: pkg_cstruct.syntax
 

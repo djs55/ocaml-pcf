@@ -16,31 +16,37 @@
 
 let (|>) a b = b a
 
-cstruct header {
-  uint8_t magic[4];
-  uint32_t table_count
-} as little_endian
+[%%cstruct
+  type header = {
+    magic: uint8_t [@len 4];
+    table_count : uint32_t;
+  } [@@little_endian]
+]
 
 let magic = "\001fcp"
 
-cstruct table_entry {
-  uint32_t ty;
-  uint32_t format;
-  uint32_t size;
-  uint32_t offset
-} as little_endian
+[%%cstruct
+  type table_entry = {
+    ty: uint32_t;
+    format: uint32_t;
+    size: uint32_t;
+    offset: uint32_t;
+  } [@@little_endian]
+]
 
-cenum ty {
-  PROPERTIES       = 1;
-  ACCELERATORS     = 2;
-  METRICS          = 4;
-  BITMAPS          = 8;
-  INK_METRICS      = 16;
-  BDF_ENCODINGS    = 32;
-  SWIDTHS          = 64;
-  GLYPH_NAMES      = 128;
-  BDF_ACCELERATORS = 256
-} as uint32_t
+[%%cenum
+  type ty =
+  | PROPERTIES       [@id 1]
+  | ACCELERATORS     [@id 2]
+  | METRICS          [@id 4]
+  | BITMAPS          [@id 8]
+  | INK_METRICS      [@id 16]
+  | BDF_ENCODINGS    [@id 32]
+  | SWIDTHS          [@id 64]
+  | GLYPH_NAMES      [@id 128]
+  | BDF_ACCELERATORS [@id 256]
+  [@@uint32_t]
+]
 
 let format_most_sig_byte_first = 1 lsl 2
 let format_most_sig_bit_first  = 1 lsl 3
@@ -256,7 +262,7 @@ let total_bitmaps (t: t) =
   Int32.to_int (get_uint32 format e 4)
 
 let string_to_bool_array nbits msb_first x =
-  let result = Array.create nbits false in
+  let result = Array.make nbits false in
   for i = 0 to nbits - 1 do
     let byte = int_of_char x.[i / 8] in
     let bit_idx = 1 lsl (i mod 8) in

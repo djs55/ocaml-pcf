@@ -1,6 +1,6 @@
 OASISFormat:  0.3
 Name:         pcf
-Version:      0.0.1
+Version:      0.0.2
 Synopsis:     Pure OCaml parser for the X11 pcf bitmap format
 License:      ISC
 Authors:      various
@@ -12,7 +12,7 @@ Library pcf
   Path: lib
   Modules: Pcf
   Findlibname: pcf
-  BuildDepends: cstruct
+  BuildDepends: cstruct, cstruct.ppx
 
 Library pcf_unix
   Path: lib

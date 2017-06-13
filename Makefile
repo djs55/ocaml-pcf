@@ -1,16 +1,41 @@
-all: build
+# OASIS_START
+# DO NOT EDIT (digest: a3c674b4239234cbbe53afe090018954)
 
-setup.data: _oasis
-	ocaml setup.ml -configure
+SETUP = ocaml setup.ml
 
-.PHONY: build
 build: setup.data
-	ocaml setup.ml -build
+	$(SETUP) -build $(BUILDFLAGS)
 
-install: build
-	ocamlfind remove pcf
-	ocaml setup.ml -install
+doc: setup.data build
+	$(SETUP) -doc $(DOCFLAGS)
 
-.PHONY: clean
+test: setup.data build
+	$(SETUP) -test $(TESTFLAGS)
+
+all:
+	$(SETUP) -all $(ALLFLAGS)
+
+install: setup.data
+	$(SETUP) -install $(INSTALLFLAGS)
+
+uninstall: setup.data
+	$(SETUP) -uninstall $(UNINSTALLFLAGS)
+
+reinstall: setup.data
+	$(SETUP) -reinstall $(REINSTALLFLAGS)
+
 clean:
-	rm -rf _build setup.data
+	$(SETUP) -clean $(CLEANFLAGS)
+
+distclean:
+	$(SETUP) -distclean $(DISTCLEANFLAGS)
+
+setup.data:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+configure:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+.PHONY: build doc test all install uninstall reinstall clean distclean configure
+
+# OASIS_STOP
